@@ -40,17 +40,18 @@ def send_message(connection_socket, message):
 
 	# encode the message to bytes and send using the socket
 	s.send(message.encode())
+	print("Message", message, " sent to ", s.getpeername())
 
 	# print replies from server
 	data = s.recv(1024)
-	print(data.decode())
+	print("Received back", data.decode())
 	
 	# if message == "close":
 	# 	print("Closing connection from client side")
 	# 	s.close()
 	return
 
-def handle_connection(connection_socket, address):
+def handle_connection(connection_socket, connection_id, address):
 	"""
 	actions for each connection
 	"""
@@ -66,21 +67,23 @@ def handle_connection(connection_socket, address):
 			break
 
 		# else print the message received
-		print("Got message from", address, ":", message)
+		print("Message received from", address[0])
+		print("Sender's port:", address[1])
+		print("Message: ", message)
 
-		# convert it to uppercase and send back
-		connection_socket.send(message.upper().encode())
+		# # convert it to uppercase and send back
+		# connection_socket.send(message.upper().encode())
 
 	print("Closing connection from server side with", address)
-
+	del connection_dict[connection_id]
 	connection_socket.close()
 
 def terminate_connection(connection_id):
 	conn = connection_dict[connection_id]
 	send_message(conn, "close")
 	del connection_dict[connection_id]
-	global connection_counter
-	connection_counter -= 1
+	# global connection_counter
+	# # connection_counter -= 1
 	print("Terminated connection", connection_id)
 	return
 
@@ -107,7 +110,8 @@ def input_handler(sock):
 			print("No current connections")
 		for conn_id in connection_dict.keys():
 			conn = connection_dict[conn_id]
-			print("Connection ID:", conn_id, " | IP Address:", conn.getsockname()[0], " | Port:", conn.getsockname()[1])
+			print("All of socket conn:", conn)
+			print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Port:", conn.getpeername()[1])
 			# print("Connection ID:", conn_id, " | Address:", conn.getpeername())
 
 	elif command == "myport":
@@ -186,20 +190,6 @@ def input_loop(sock):
 		# print(threading.enumerate())
 		input_handler(sock)
 	
-# def listen_loop(sock):
-# 	i = 0
-# 	while i <3: 
-# 		# accept connection request
-# 		print("Waiting for connection...", end="\n")
-# 		connection_socket, address = sock.accept()
-# 		print("Got connection from", address, end="\n")
-# 		# create a thread to handle the accepted client
-# 		thread = threading.Thread(target=handle_connection, args=(connection_socket, address), daemon=True)
-# 		thread.start()  # start the thread
-# 		print("Started new connection thread", thread.name)
-# 		print("There are currently", threading.active_count(), " active threads")
-# 		i+=1
-
 def main():
 	# input validation
 	if int(sys.argv[1]) not in range(1023,49152):
@@ -236,7 +226,7 @@ def main():
 		print("Got connection from", address)
 
 		# create a thread to handle the accepted client
-		thread = threading.Thread(target=handle_connection, args=(connection_socket, address), daemon=True)
+		thread = threading.Thread(target=handle_connection, args=(connection_socket, (connection_counter-1), address), daemon=True)
 		thread.start()  # start the thread
 
 
