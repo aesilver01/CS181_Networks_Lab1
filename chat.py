@@ -20,7 +20,8 @@ exit - Close all connections and terminate this process. \n
 
 
 def connect(ip, port):
-	print("Opened connection")
+	global connection_counter
+	print(f"Opened connection {connection_counter}")
 	s = socket.socket()  # next create a socket object
 	s.connect((ip, port))  # connect to the server on local computer
 	global connection_counter
@@ -72,10 +73,10 @@ def handle_connection(connection_socket, connection_id, address):
 		# # convert it to uppercase and send back
 		# connection_socket.send(message.upper().encode())
 
-	print("Closing connection from server side with", address)
-	del connection_dict[connection_id]
 	connection_socket.close()
-
+	del connection_dict[connection_id]
+	print(f"Closing connection {connection_id} from server side with", address)
+	
 def terminate_connection(connection_id):
 	# conn = connection_dict[connection_id]
 	conn = connection_dict[connection_id]['socket']
