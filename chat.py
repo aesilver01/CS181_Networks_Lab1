@@ -18,7 +18,11 @@ exit - Close all connections and terminate this process. \n
 
 """""
 
-
+""" Connect: opens a connection with another device at the specified ip and port
+inputs: 
+ip - the IP address of the device to connect to
+port - the port number to connect to
+"""
 def connect(ip, port):
 	global connection_counter
 	print(f"Opened connection {connection_counter}")
@@ -32,7 +36,11 @@ def connect(ip, port):
 	connection_counter += 1
 	# keep getting user input
 
-
+""" send_message(): sends a message to the specified socket
+inputs:
+connection_socket - the socket to send the message to
+message - the message to be sent
+"""
 def send_message(connection_socket, message):
 	s = connection_socket
 
@@ -49,6 +57,13 @@ def send_message(connection_socket, message):
 		s.close()
 	return
 
+
+""" handle_connection(): listens for messages on a socket until it is closed
+inputs:
+connection_socket - the socket of the connection 
+connection_id - the connection id of the connection
+addres - the IP address of the source of the connection
+"""
 def handle_connection(connection_socket, connection_id, address):
 	"""
 	actions for each connection
@@ -76,6 +91,11 @@ def handle_connection(connection_socket, connection_id, address):
 	del connection_dict[connection_id]
 	print(f"Closing connection {connection_id} from server side with", address)
 	
+
+""" terminate_connection(): closes the connection at the specifiec connection_id and updates the dict of connections
+inputs:
+connection_id: the connection id of the connection to be closed
+"""
 def terminate_connection(connection_id):
 	# conn = connection_dict[connection_id]
 	conn = connection_dict[connection_id]['socket']
@@ -86,6 +106,11 @@ def terminate_connection(connection_id):
 	print("Terminated connection", connection_id)
 	return
 
+
+""" input_handler() - receives command input and does appropriate action
+input: 
+sock - the socket of the current device
+"""
 def input_handler(sock):
 	command = input("Input command: ")
 
@@ -104,21 +129,18 @@ def input_handler(sock):
 		return(hostip)
 	
 	elif command == "list":
-		print("Current connections: ")
 		if len(connection_dict) == 0:
 			print("No current connections")
-		for conn_id in connection_dict.keys():
-			# conn = connection_dict[conn_id]
-			# print("connection_dict[conn_id] is", connection_dict[conn_id], "of type", type(connection_dict[conn_id]))
-			conn = connection_dict[conn_id]['socket']
-			# print("All of socket conn:", conn)
-			print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Listening Port:", connection_dict[conn_id]['listening_port'])
-			# print("Connection ID:", conn_id, " | Address:", conn.getpeername())
+		else:
+			print("Current connections: ")
+			for conn_id in connection_dict.keys():
+				conn = connection_dict[conn_id]['socket']
+				print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Listening Port:", connection_dict[conn_id]['listening_port'])
 
 	elif command == "myport":
 		portnum = sock.getsockname()[1]
 		print("The listening socket of this process is ", portnum)
-		return(portnum)
+		return
 	
 	elif command[0:7] == "connect":	
 		# split input to get <destination> and <port> arguments
@@ -138,6 +160,7 @@ def input_handler(sock):
 		elif port == sock.getsockname()[1]:
 			print("Cannot connect to self")
 			return
+		
 		connect(ip, port)
 
 	elif command[0:4] == "send":
@@ -192,12 +215,16 @@ def input_handler(sock):
 		return
 	return
 
+
+""" input_loop(): continuously handle user input until done
+inputs:
+sock - the socket of this device
+"""
 def input_loop(sock):
 	while True:
-		# print("There are currently", threading.active_count(), " active threads")	
-		# print(threading.enumerate())
 		input_handler(sock)
-	
+
+
 def main():
 	# input validation
 	if int(sys.argv[1]) not in range(1023,49152):
@@ -208,21 +235,13 @@ def main():
 	s = socket.socket()
 	s.bind(("", port))  # input is a tuple with address and port as elements
 	print("Hello. Created new process with listening port", port)
-
-
-
-	# listen_thread = threading.Thread(target=listen_loop, name="listen_loop_thread", args=(s,), daemon=True)
-	# listen_thread.start()  # start the thread
-	# print("Started thread", listen_thread.name)
-	# print("There are currently", threading.active_count(), " active threads")
 	
-
+	# start a thread to gather user input
 	input_thread = threading.Thread(target=input_loop, name="input_handler_thread", args=(s,), daemon=True)
 	input_thread.start()  # start the thread
 	print("Started thread", input_thread.name)
 	
-
-	s.listen(50)
+	s.listen(50) # start listening for up to 50 
 
 	while True:
 		# accept connection request
@@ -233,7 +252,6 @@ def main():
 			"socket": connection_socket,
 			"listening_port": connection_socket.getsockname()[1],
 		}
-		#connection_dict[connection_counter]['listening_port'] = connection_socket.getsockname()[1]
 		connection_counter += 1
 		print("Got connection from", address)
 
