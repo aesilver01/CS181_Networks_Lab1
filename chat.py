@@ -2,8 +2,10 @@ import socket
 import threading
 import sys
 
+exit = False
+
 connection_dict = {}
-connection_counter = 0
+connection_counter = 0 
 
 helpmenu = """""
 Command Manual: \n
@@ -107,6 +109,25 @@ def terminate_connection(connection_id):
 	return
 
 
+def accept_connection(s):
+	s.listen(50) # start listening for up to 50 
+	
+	while True:
+		# accept connection request
+		connection_socket, address = s.accept()
+
+		global connection_counter
+		connection_dict[connection_counter] = {
+			"socket": connection_socket,
+			"listening_port": connection_socket.getsockname()[1],
+		}
+		connection_counter += 1
+		print("Got connection from", address)
+
+		# create a thread to handle the accepted client
+		thread = threading.Thread(target=handle_connection, args=(connection_socket, (connection_counter-1), address), daemon=True)
+		thread.start()  # start the thread
+
 """ input_handler() - receives command input and does appropriate action
 input: 
 sock - the socket of the current device
@@ -199,6 +220,7 @@ def input_handler(sock):
 			print("Invalid connection ID, please try again")
 			return
 		
+		conn = connection_dict[int(connection_id)]['socket']
 		if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
 			print("Cannot terminate connection with self")
 			return
@@ -207,8 +229,16 @@ def input_handler(sock):
 		return
 		
 	elif command == "exit":
-		
-		exit
+		for conn_id in list(connection_dict.keys()):
+			print("looping through connection_dict keys, currently at", conn_id)
+			conn = connection_dict[int(conn_id)]['socket']
+			print("found the socket" if conn else "did not find the socket")
+			if conn.getsockname()[0] != socket.gethostbyname(socket.gethostname()) or conn.getsockname()[1] != sock.getsockname()[1]:
+				terminate_connection(conn_id)
+
+		# set exit flag to true
+		global exit
+		exit = True
 
 	else:
 		print("Invalid command, please try again")
@@ -241,23 +271,15 @@ def main():
 	input_thread.start()  # start the thread
 	print("Started thread", input_thread.name)
 	
-	s.listen(50) # start listening for up to 50 
+	# start a thread to accept connections
+	connection_thread = threading.Thread(target=accept_connection, name="connection_thread", args=(s,), daemon=True)
+	connection_thread.start()
 
-	while True:
-		# accept connection request
-		connection_socket, address = s.accept()
+	# wait to get exit signal
+	while (exit == False):
+		pass
 
-		global connection_counter
-		connection_dict[connection_counter] = {
-			"socket": connection_socket,
-			"listening_port": connection_socket.getsockname()[1],
-		}
-		connection_counter += 1
-		print("Got connection from", address)
-
-		# create a thread to handle the accepted client
-		thread = threading.Thread(target=handle_connection, args=(connection_socket, (connection_counter-1), address), daemon=True)
-		thread.start()  # start the thread
+	sys.exit()
 
 
 if __name__ == "__main__":
