@@ -10,27 +10,25 @@ Command Manual: \n
 
 myip - Display the IP address of this process \n
 myport - Display the port on which this process is listening for connections \n
-connect <destination> <port no> - Establish a new TCP connection to the specified destination \n
-								  at the specified port number. \n
+connect <destination> <port no> - Establish a new TCP connection to the specified destination at the specified port number.\n
 list - Display a numbered list of all the connections this process is part of. \n
 terminate <connection id> - Terminate the connection listed under the specified connection id. \n
-send <connection id> <message> - Send the message to the host on the connection specified by \n
-								 the connection id. \n
+send <connection id> <message> - Send the message to the host on the connection specified by the connection id. \n
 exit - Close all connections and terminate this process. \n
 
 """""
 
-# def myip():
-# 	localhost = socket.gethostname()
-# 	print("Host's IPv4 address is ", socket.gethostbyname(localhost))
-# 	return socket.gethostbyname(localhost)
 
 def connect(ip, port):
 	print("Opened connection")
 	s = socket.socket()  # next create a socket object
 	s.connect((ip, port))  # connect to the server on local computer
 	global connection_counter
-	connection_dict[connection_counter] = s
+	# connection_dict[connection_counter] = s 
+	connection_dict[connection_counter] = {
+		"socket": s,
+		"listening_port": s.getpeername()[1],
+	}
 	connection_counter += 1
 	# keep getting user input
 
@@ -42,9 +40,9 @@ def send_message(connection_socket, message):
 	s.send(message.encode())
 	print("Message", message, " sent to ", s.getpeername())
 
-	# print replies from server
-	data = s.recv(1024)
-	print("Received back", data.decode())
+	# # print replies from server
+	# data = s.recv(1024)
+	# print("Received back", data.decode())
 	
 	# if message == "close":
 	# 	print("Closing connection from client side")
@@ -79,7 +77,8 @@ def handle_connection(connection_socket, connection_id, address):
 	connection_socket.close()
 
 def terminate_connection(connection_id):
-	conn = connection_dict[connection_id]
+	# conn = connection_dict[connection_id]
+	conn = connection_dict[connection_id]['socket']
 	send_message(conn, "close")
 	del connection_dict[connection_id]
 	# global connection_counter
@@ -109,9 +108,11 @@ def input_handler(sock):
 		if len(connection_dict) == 0:
 			print("No current connections")
 		for conn_id in connection_dict.keys():
-			conn = connection_dict[conn_id]
+			# conn = connection_dict[conn_id]
+			print("connection_dict[conn_id] is", connection_dict[conn_id], "of type", type(connection_dict[conn_id]))
+			conn = connection_dict[conn_id]['socket']
 			print("All of socket conn:", conn)
-			print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Port:", conn.getpeername()[1])
+			print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Listening Port:", connection_dict[conn_id]['listening_port'])
 			# print("Connection ID:", conn_id, " | Address:", conn.getpeername())
 
 	elif command == "myport":
@@ -154,7 +155,8 @@ def input_handler(sock):
 		# connection_id = input("Enter connection ID: ")
 		# message = input("Enter message: ")
 
-		conn = connection_dict[int(connection_id)]
+		# conn = connection_dict[int(connection_id)]
+		conn = connection_dict[int(connection_id)]['socket']
 		if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
 			print("Cannot send message to self")
 			return
@@ -193,7 +195,7 @@ def input_loop(sock):
 def main():
 	# input validation
 	if int(sys.argv[1]) not in range(1023,49152):
-		raise ValueError("Invalid port number, please enter a number between 0 and 12345")
+		raise ValueError("Invalid port number, please enter a number between 1024 and 49152")
 
 	# create a listening socket
 	port = int(sys.argv[1])
@@ -221,7 +223,11 @@ def main():
 		connection_socket, address = s.accept()
 
 		global connection_counter
-		connection_dict[connection_counter] = connection_socket
+		connection_dict[connection_counter] = {
+			"socket": connection_socket,
+			"listening_port": connection_socket.getsockname()[1],
+		}
+		#connection_dict[connection_counter]['listening_port'] = connection_socket.getsockname()[1]
 		connection_counter += 1
 		print("Got connection from", address)
 
