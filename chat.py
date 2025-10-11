@@ -44,9 +44,9 @@ def send_message(connection_socket, message):
 	# data = s.recv(1024)
 	# print("Received back", data.decode())
 	
-	# if message == "close":
-	# 	print("Closing connection from client side")
-	# 	s.close()
+	if message == "close":
+		print("Closing connection from client side")
+		s.close()
 	return
 
 def handle_connection(connection_socket, connection_id, address):
@@ -109,9 +109,9 @@ def input_handler(sock):
 			print("No current connections")
 		for conn_id in connection_dict.keys():
 			# conn = connection_dict[conn_id]
-			print("connection_dict[conn_id] is", connection_dict[conn_id], "of type", type(connection_dict[conn_id]))
+			# print("connection_dict[conn_id] is", connection_dict[conn_id], "of type", type(connection_dict[conn_id]))
 			conn = connection_dict[conn_id]['socket']
-			print("All of socket conn:", conn)
+			# print("All of socket conn:", conn)
 			print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Listening Port:", connection_dict[conn_id]['listening_port'])
 			# print("Connection ID:", conn_id, " | Address:", conn.getpeername())
 
@@ -152,8 +152,10 @@ def input_handler(sock):
 		connection_id = int(args[1])
 		message = " ".join(args[2:])
 
-		# connection_id = input("Enter connection ID: ")
-		# message = input("Enter message: ")
+		# verify the given connection ID exists
+		if connection_id not in connection_dict.keys():
+			print("Invalid connection ID, please try again")
+			return
 
 		# conn = connection_dict[int(connection_id)]
 		conn = connection_dict[int(connection_id)]['socket']
@@ -169,7 +171,7 @@ def input_handler(sock):
 		args = command.split()
 		connection_id = int(args[1])
 
-		# connection_id = input("Enter connection ID: ")
+		# verify the given connection ID exists
 		if connection_id not in connection_dict.keys():
 			print("Invalid connection ID, please try again")
 			return
