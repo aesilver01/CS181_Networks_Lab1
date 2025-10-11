@@ -24,7 +24,6 @@ def connect(ip, port):
 	print(f"Opened connection {connection_counter}")
 	s = socket.socket()  # next create a socket object
 	s.connect((ip, port))  # connect to the server on local computer
-	global connection_counter
 	# connection_dict[connection_counter] = s 
 	connection_dict[connection_counter] = {
 		"socket": s,
@@ -175,6 +174,10 @@ def input_handler(sock):
 		# verify the given connection ID exists
 		if connection_id not in connection_dict.keys():
 			print("Invalid connection ID, please try again")
+			return
+		
+		if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
+			print("Cannot terminate connection with self")
 			return
 		
 		terminate_connection(connection_id)
