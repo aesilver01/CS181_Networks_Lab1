@@ -109,9 +109,12 @@ def terminate_connection(connection_id):
 	return
 
 
+""" accept_connections(): keep listening for connection requests
+inputs:
+s - listening socket
+"""
 def accept_connection(s):
-	s.listen(50) # start listening for up to 50 
-	
+	s.listen(50) # start listening for up to 50 connections
 	while True:
 		# accept connection request
 		connection_socket, address = s.accept()
