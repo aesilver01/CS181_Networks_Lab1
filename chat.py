@@ -1,6 +1,7 @@
 import socket
 import threading
 import sys
+import base64
 
 exit = False
 
@@ -20,6 +21,20 @@ exit - Close all connections and terminate this process. \n
 
 """""
 
+""" encode_img: encode the given image file as a string
+
+"""
+def encode_img(img_file):
+	with open(img_file, "rb") as img:
+		b64_byte = base64.b64encode(img.read())
+		b64_str = b64_str.decode(b64_byte)
+	return b64_str
+
+def decodeImg(img_str):
+	img_file = open()
+
+	return img_file
+
 """ Connect: opens a connection with another device at the specified ip and port
 inputs: 
 ip - the IP address of the device to connect to
@@ -36,7 +51,11 @@ def connect(ip, port):
 		"listening_port": s.getpeername()[1],
 	}
 	connection_counter += 1
+
 	# keep getting user input
+	thread = threading.Thread(target=handle_connection, args=(s, (connection_counter-1), s.getsockname()), daemon=True)
+	thread.start()
+
 
 """ send_message(): sends a message to the specified socket
 inputs:
@@ -59,6 +78,15 @@ def send_message(connection_socket, message):
 		s.close()
 	return
 
+def send_file(connection_socket, filepath):
+	s = connection_socket
+	with open(filepath, 'r', encoding='utf-8') as f:
+			file_content = f.read()
+	prefix = f"FILE LENGTH {len(file_content)}"
+	suffix = f"END"
+	s.sendall(prefix.encode())
+	s.sendall(file_content.encode())
+	s.sendall(suffix.encode)
 
 """ handle_connection(): listens for messages on a socket until it is closed
 inputs:
@@ -160,6 +188,7 @@ def input_handler(sock):
 			for conn_id in connection_dict.keys():
 				conn = connection_dict[conn_id]['socket']
 				print("Connection ID:", conn_id, " | IP Address:", conn.getpeername()[0], " | Listening Port:", connection_dict[conn_id]['listening_port'])
+		return
 
 	elif command == "myport":
 		portnum = sock.getsockname()[1]
@@ -206,13 +235,19 @@ def input_handler(sock):
 
 		# conn = connection_dict[int(connection_id)]
 		conn = connection_dict[int(connection_id)]['socket']
-		if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
-			print("Cannot send message to self")
-			return
+		# if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
+		# 	print("Cannot send message to self")
+		# 	return
 
 		send_message(conn, message)
 		return
 	
+
+	elif command[0:8] == "sendfile":
+		# sendfile <pathname>
+		args = command.split()
+		return
+
 	elif command[0:9] == "terminate":
 		# split input to get <connection id> argument
 		args = command.split()
@@ -224,9 +259,9 @@ def input_handler(sock):
 			return
 		
 		conn = connection_dict[int(connection_id)]['socket']
-		if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
-			print("Cannot terminate connection with self")
-			return
+		# if conn.getsockname()[0] == socket.gethostbyname(socket.gethostname()) and conn.getsockname()[1] == sock.getsockname()[1]:
+		# 	print("Cannot terminate connection with self")
+		# 	return
 		
 		terminate_connection(connection_id)
 		return
