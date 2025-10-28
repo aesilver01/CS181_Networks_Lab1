@@ -68,10 +68,6 @@ def send_message(connection_socket, message):
 	# encode the message to bytes and send using the socket
 	s.send(message.encode())
 	print("Message", message, " sent to ", s.getpeername())
-
-	# # print replies from server
-	# data = s.recv(1024)
-	# print("Received back", data.decode())
 	
 	if message == "close":
 		print("Closing connection from client side")
@@ -114,8 +110,6 @@ def handle_connection(connection_socket, connection_id, address):
 		print("Sender's port:", address[1])
 		print("Message: ", message)
 
-		# # convert it to uppercase and send back
-		# connection_socket.send(message.upper().encode())
 
 	connection_socket.close()
 	del connection_dict[connection_id]
@@ -131,8 +125,6 @@ def terminate_connection(connection_id):
 	conn = connection_dict[connection_id]['socket']
 	send_message(conn, "close")
 	del connection_dict[connection_id]
-	# global connection_counter
-	# # connection_counter -= 1
 	print("Terminated connection", connection_id)
 	return
 
