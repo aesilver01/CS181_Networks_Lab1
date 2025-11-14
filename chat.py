@@ -32,7 +32,7 @@ def encode_img(img_file):
 	return b64_str
 
 def decodeImg(img_str):
-	img_bytes= base64.b64decode(img_str.en)
+	img_bytes= base64.b64decode(img_str)
 	return img_bytes
 
 """ Connect: opens a connection with another device at the specified ip and port
@@ -95,19 +95,35 @@ def send_textfile(connection_socket, filepath):
 		print(f"Error: couldn't send {filepath}")
 	
 def send_imagefile(connection_socket, filepath):
-	try: 
-		file_content = encode_img(filepath)
-		file_name = os.path.basename(filepath)
-		file_length = len(file_content)
-		start_marker = f"FILE_START:IMAGE:{file_name}:{file_length}"
-		end_marker = f"FILE_END"
+	# try: 
+	print("trying to send img")
+	with open(filepath, 'rb') as f:
+			# file_content = f.read()
+			file_content = (base64.b64encode(f.read()))
+	print("opened image file")
+	# encoded_content = encode_img(file_content)
+	# print("encoded image file")
 
-		connection_socket.sendall(start_marker.encode('utf-8'))
-		connection_socket.sendall(file_content.encode('utf-8'))
-		connection_socket.sendall(end_marker.encode('utf-8'))
-		print(f"Finished sending image file {file_name}")
-	except Exception:
-		print(f"Error: couldn't send {filepath}")
+	# encoded_content = encode_img(encoded_content)
+	# with open(filepath, 'rb', encoding='utf-8') as f:
+	# 		file_content = f.read()
+	# print("opened image file")
+	print("encoded image file")
+
+	file_name = os.path.basename(filepath)
+	file_length = len(file_content)
+	start_marker = f"FILE_START:IMAGE:{file_name}:{file_length}"
+	end_marker = f"FILE_END"
+
+	print(f"Beginning file transfer with header {start_marker}")
+	connection_socket.sendall(start_marker.encode('utf-8'))
+	print("Header complete, transmitting data")
+	connection_socket.sendall(file_content)
+	print("Finishing file transfer, sending end-of-file signal")
+	connection_socket.sendall(end_marker.encode('utf-8'))
+	print(f"Finished sending image file {file_name}")
+	# except Exception:
+	# 	print(f"Error: couldn't send {filepath}")
 	
 
 
@@ -117,21 +133,14 @@ def send_file(connection_socket, filepath):
 		print(f"Filepath Error: couldn't find filepath {filepath}")
 		return
 	else: 
-		file_type = os.path.basename(filepath).split('.')[1] # after the .
-		if file_type in ['.jpg', '.png', '.jpeg']:
+		file_type = filepath.split('.')[1] # after the .
+		print(f"file type is {file_type}")
+		if file_type in ['jpg', 'png', 'jpeg']:
+			print('sending image')
 			send_imagefile(connection_socket, filepath) # TODO THIS ISNT IMPLEMETNED YET
 		else:
+			print('sending text')
 			send_textfile(connection_socket, filepath)
-
-	# ## SHOULD MAKE THIS A HELPER TO SEND TEXT VS SEND IMAGE
-	# s = connection_socket
-	# with open(filepath, 'r', encoding='utf-8') as f:
-	# 		file_content = f.read()
-	# prefix = f"FILE LENGTH {len(file_content)}"
-	# suffix = f"END"
-	# s.sendall(prefix.encode())
-	# s.sendall(file_content.encode())
-	# s.sendall(suffix.encode)
 
 def receive_file(connection_socket, address, message):
 	# get the length of the file
@@ -144,15 +153,24 @@ def receive_file(connection_socket, address, message):
 	print(f"Receiving a {file_type} named {file_name} of size {file_length}")
 
 	# keep receiving until the full file is received
+	print_i = 0
 	while received_length < file_length:
 		data = connection_socket.recv(8)
-		file_chunk = data.decode()
+		if file_type == "IMAGE":
+			file_chunk = data.decode()
+		else:
+			file_chunk = data.decode()
 		file_content += file_chunk
 		received_length += len(file_chunk)
-		print(f"Received {received_length} of {file_length} chars")
+		if print_i % 1024 == 0:
+			print(f"Received {received_length} of {file_length} chars")
+		print_i +=1
 
 	data = connection_socket.recv(8)
-	file_chunk = data.decode()
+	if file_type == "IMAGE":
+		file_chunk = data.decode()
+	else:
+		file_chunk = data.decode()
 	file_content += file_chunk
 	received_length += len(file_chunk)
 	print(f"Received {received_length} of {file_length} chars")
@@ -161,17 +179,30 @@ def receive_file(connection_socket, address, message):
 	file_content = file_content[:-8] # don't write the file marker
 	print(f"suffix is now {suffix}")
 	print("Ready to write out")
+
+	modfile_name = "copy_of_" + file_name
 	if suffix == "FILE_END":
 		if file_type == "TEXT":
-			modfile_name = "copy_of_" + file_name
-			print(modfile_name)
-			# with open(file_name, 'w', encoding='utf-8') as received_file:
-			print("with open")
+		
 			with open(modfile_name, 'w', encoding='utf-8') as received_file:
 				received_file.write(file_content)
-				print("done writing file")
+			
 		elif file_type == "IMAGE":
-			pass
+			imgData = decodeImg(file_content)
+			
+			with open(modfile_name, 'wb') as imgFile:
+				imgFile.write(imgData)
+				# imgFile.write(file_content)
+
+
+
+				# f = open('encode.bin', 'rb')  # Open encoded file.
+				# byte = f.read()  # Read data.
+				# f.close()
+
+			# decode = open('stringtoimage.webp', 'wb')  # Open image file to save.
+			# decode.write(base64.b64decode(imgFile))  # Decode and write data.
+			# decode.close()
 		else:
 			raise Exception("Unknown file type")
 	else:
