@@ -2,6 +2,7 @@ import socket
 import threading
 import sys
 import base64
+import os
 
 exit = False
 
@@ -31,9 +32,8 @@ def encode_img(img_file):
 	return b64_str
 
 def decodeImg(img_str):
-	img_file = open()
-
-	return img_file
+	img_bytes= base64.b64decode(img_str.en)
+	return img_bytes
 
 """ Connect: opens a connection with another device at the specified ip and port
 inputs: 
@@ -74,21 +74,117 @@ def send_message(connection_socket, message):
 		s.close()
 	return
 
+def send_textfile(connection_socket, filepath):
+	try: 
+		with open(filepath, 'r', encoding='utf-8') as f:
+				file_content = f.read()
+		file_name = os.path.basename(filepath)
+		file_length = len(file_content)
+		start_marker = f"FILE_START:TEXT:{file_name}:{file_length}"
+		end_marker = f"FILE_END"
+
+		print(f"Beginning file transfer with header {start_marker}")
+		# connection_socket.sendall(start_marker.encode())
+		connection_socket.send(start_marker.encode())
+		print("Header complete, transmitting data")
+		connection_socket.sendall(file_content.encode('utf-8'))
+		print("Finishing file transfer, sending end-of-file signal")
+		connection_socket.sendall(end_marker.encode('utf-8'))
+		print(f"Finished sending text file {file_name}")
+	except Exception:
+		print(f"Error: couldn't send {filepath}")
+	
+def send_imagefile(connection_socket, filepath):
+	try: 
+		file_content = encode_img(filepath)
+		file_name = os.path.basename(filepath)
+		file_length = len(file_content)
+		start_marker = f"FILE_START:IMAGE:{file_name}:{file_length}"
+		end_marker = f"FILE_END"
+
+		connection_socket.sendall(start_marker.encode('utf-8'))
+		connection_socket.sendall(file_content.encode('utf-8'))
+		connection_socket.sendall(end_marker.encode('utf-8'))
+		print(f"Finished sending image file {file_name}")
+	except Exception:
+		print(f"Error: couldn't send {filepath}")
+	
+
+
 def send_file(connection_socket, filepath):
-	s = connection_socket
-	with open(filepath, 'r', encoding='utf-8') as f:
-			file_content = f.read()
-	prefix = f"FILE LENGTH {len(file_content)}"
-	suffix = f"END"
-	s.sendall(prefix.encode())
-	s.sendall(file_content.encode())
-	s.sendall(suffix.encode)
+
+	if not os.path.exists(filepath):
+		print(f"Filepath Error: couldn't find filepath {filepath}")
+		return
+	else: 
+		file_type = os.path.basename(filepath).split('.')[1] # after the .
+		if file_type in ['.jpg', '.png', '.jpeg']:
+			send_imagefile(connection_socket, filepath) # TODO THIS ISNT IMPLEMETNED YET
+		else:
+			send_textfile(connection_socket, filepath)
+
+	# ## SHOULD MAKE THIS A HELPER TO SEND TEXT VS SEND IMAGE
+	# s = connection_socket
+	# with open(filepath, 'r', encoding='utf-8') as f:
+	# 		file_content = f.read()
+	# prefix = f"FILE LENGTH {len(file_content)}"
+	# suffix = f"END"
+	# s.sendall(prefix.encode())
+	# s.sendall(file_content.encode())
+	# s.sendall(suffix.encode)
+
+def receive_file(connection_socket, address, message):
+	# get the length of the file
+	prefix = message.split(":")
+	file_type = prefix[1] # TEXT or IMAGE
+	file_name = prefix[2]
+	file_length = int(prefix[3]) 
+	received_length = 0
+	file_content = ""
+	print(f"Receiving a {file_type} named {file_name} of size {file_length}")
+
+	# keep receiving until the full file is received
+	while received_length < file_length:
+		data = connection_socket.recv(8)
+		file_chunk = data.decode()
+		file_content += file_chunk
+		received_length += len(file_chunk)
+		print(f"Received {received_length} of {file_length} chars")
+
+	data = connection_socket.recv(8)
+	file_chunk = data.decode()
+	file_content += file_chunk
+	received_length += len(file_chunk)
+	print(f"Received {received_length} of {file_length} chars")
+
+	suffix = file_content[-8:]
+	file_content = file_content[:-8] # don't write the file marker
+	print(f"suffix is now {suffix}")
+	print("Ready to write out")
+	if suffix == "FILE_END":
+		if file_type == "TEXT":
+			modfile_name = "copy_of_" + file_name
+			print(modfile_name)
+			# with open(file_name, 'w', encoding='utf-8') as received_file:
+			print("with open")
+			with open(modfile_name, 'w', encoding='utf-8') as received_file:
+				received_file.write(file_content)
+				print("done writing file")
+		elif file_type == "IMAGE":
+			pass
+		else:
+			raise Exception("Unknown file type")
+	else:
+		raise Exception("Did not receive END suffix after file transfer")	
+	
+	return file_name
+
 
 """ handle_connection(): listens for messages on a socket until it is closed
 inputs:
 connection_socket - the socket of the connection 
 connection_id - the connection id of the connection
-addres - the IP address of the source of the connection
+address - the IP address of the source of the connection
 """
 def handle_connection(connection_socket, connection_id, address):
 	"""
@@ -105,10 +201,18 @@ def handle_connection(connection_socket, connection_id, address):
 		if message == "close":
 			break
 
-		# else print the message received
-		print("Message received from", address[0])
-		print("Sender's port:", address[1])
-		print("Message: ", message)
+		# receive file from file transfer
+		if message.startswith("FILE_START"):
+			file_name = receive_file(connection_socket, address, message)
+			print("File received from", address[0])
+			print("Sender's port:", address[1])
+			print("File name:", file_name)
+
+		else: 
+			# else print the message received
+			print("Message received from", address[0])
+			print("Sender's port:", address[1])
+			print("Message: ", message)
 
 
 	connection_socket.close()
@@ -208,7 +312,7 @@ def input_handler(sock):
 		
 		connect(ip, port)
 
-	elif command[0:4] == "send":
+	elif command[0:4] == "send" and command[0:8] != "sendfile":
 		# split input to get <connection id> and <message> arguments
 		args = command.split()
 
@@ -236,8 +340,14 @@ def input_handler(sock):
 	
 
 	elif command[0:8] == "sendfile":
-		# sendfile <pathname>
+		# sendfile <connection id> <pathname>
 		args = command.split()
+
+		connection_id = int(args[1])
+		conn = connection_dict[int(connection_id)]['socket']
+		filename = args[2]
+		
+		send_file(conn, filename)
 		return
 
 	elif command[0:9] == "terminate":
